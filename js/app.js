@@ -1,4 +1,6 @@
-const API = 'http://localhost:3001/api';
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3001/api'
+    : `${window.location.origin}/api`;
 const S = {
     lang: localStorage.getItem('lang') || 'ar',
     theme: localStorage.getItem('theme') || 'light',

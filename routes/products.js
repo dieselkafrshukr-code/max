@@ -28,9 +28,10 @@ router.get('/:id', (req, res) => {
 
 router.post('/upload', authMiddleware, upload.single('image'), async (req, res) => {
     try {
-        if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+        const uploadsDir = process.env.UPLOADS_DIR || './uploads';
+        if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
         const filename = `img_${Date.now()}.jpg`;
-        await sharp(req.file.buffer).resize(1000, 1000, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 60 }).toFile(`./uploads/${filename}`);
+        await sharp(req.file.buffer).resize(1000, 1000, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 60 }).toFile(`${uploadsDir}/${filename}`);
         res.json({ url: `/uploads/${filename}`, path: `/uploads/${filename}` });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });

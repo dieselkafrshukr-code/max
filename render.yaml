@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: eltoufan-api
+    env: node
+    buildCommand: npm install
+    startCommand: node server.js
+    plan: free
+    envVars:
+      - key: PORT
+        value: 3001
+      - key: JWT_SECRET
+        value: eltoufan-luxury-secret-key-2026-v1
+      - key: DB_NAME
+        value: /data/eltoufan.db
+      - key: ADMIN_EMAIL
+        value: admin@eltoufan.com
+      - key: ADMIN_PASS
+        value: toufan2025
+      - key: STAFF_EMAIL
+        value: staff@eltoufan.com
+      - key: STAFF_PASS
+        value: staff2025
+      - key: WHATSAPP
+        value: "201000000000"
+      - key: NODE_ENV
+        value: production
+    disk:
+      name: eltoufan-data
+      mountPath: /data
+      sizeGB: 1

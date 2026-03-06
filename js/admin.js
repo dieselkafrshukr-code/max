@@ -1,4 +1,6 @@
-const API = 'http://localhost:3001/api';
+const API = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3001/api'
+    : `${window.location.origin}/api`;
 let S = { user: JSON.parse(localStorage.getItem('admin_user')), orders: [], prods: [], cats: [], coupons: [], shipping: [], cfg: {}, counts: { pending: 0, processing: 0, shipped: 0, delivered: 0, cancelled: 0 }, statData: { d: 0, w: 0, m: 0 }, activeTab: 'dashboard', eventSource: null };
 
 /* AUTH */
@@ -58,7 +60,106 @@ function openAddProd() { fetchCats(); document.getElementById('prod-modal-title'
 async function openEditProd(id) { await fetchCats(); const p = S.prods.find(x => x.id == id); if (!p) return; document.getElementById('prod-modal-title').textContent = 'تعديل المنتج'; document.getElementById('p-id').value = p.id; document.getElementById('p-name-ar').value = p.name_ar; document.getElementById('p-name-en').value = p.name_en || ''; document.getElementById('p-price').value = p.price; document.getElementById('p-sku').value = p.sku; document.getElementById('p-cat').value = p.category_id; document.getElementById('p-desc').value = p.description || ''; document.getElementById('p-m-c-ar').value = p.main_color_ar || ''; document.getElementById('p-m-c-en').value = p.main_color_en || ''; document.getElementById('p-sizes').value = (p.sizes || []).join(','); const vWrap = document.getElementById('p-vars'); vWrap.innerHTML = ''; if (p.variants) p.variants.forEach(v => addVarUI(v)); document.getElementById('prod-detail-modal').classList.add('on'); }
 function addVarUI(v = {}) { const div = document.createElement('div'); div.className = 'form-box var-item'; div.innerHTML = `<div class="form-grid"><div class="fg"><label>اللون (عربي)</label><input class="v-c-ar" value="${v.color_ar || v.color || ''}"></div><div class="fg"><label>المقاسات (بـ , )</label><input class="v-sizes" value="${(v.sizes || []).join(',')}"></div><div class="fg"><label>المخزن</label><input type="number" class="v-stock" value="${v.stock ?? 100}"></div><div class="fg"><label>صورة اللون</label><input type="file" class="v-img" accept="image/*"></div></div><button class="btn-outline del" style="margin-top:10px" onclick="this.parentElement.remove()">✕ إزالة هذا اللون</button>`; document.getElementById('p-vars').appendChild(div); }
 async function fetchCats() { const r = await fetch(`${API}/categories`); S.cats = await r.json(); document.getElementById('p-cat').innerHTML = S.cats.map(c => `<option value="${c.id}">${c.name_ar}</option>`).join(''); }
-async function saveProd() { const btn = document.getElementById('p-save-btn'); btn.disabled = true; const id = document.getElementById('p-id').value; const mainFile = document.getElementById('p-img').files[0]; let mainPath = null; if (mainFile) { const fd = new FormData(); fd.append('image', mainFile); const r = await fetch(`${API}/upload`, { method: 'POST', body: fd }); const d = await r.json(); mainPath = d.path; } const vars = []; const varEls = document.querySelectorAll('.var-item'); for (const el of varEls) { const c_ar = el.querySelector('.v-c-ar').value.trim(); if (!c_ar) continue; const imgFile = el.querySelector('.v-img').files[0]; let imgPath = null; if (imgFile) { const fd = new FormData(); fd.append('image', imgFile); const r = await fetch(`${API}/upload`, { method: 'POST', body: fd }); const d = await r.json(); imgPath = d.path; } vars.push({ color_ar: c_ar, sizes: el.querySelector('.v-sizes').value.split(',').map(s => s.trim()).filter(s => s), stock: parseInt(el.querySelector('.v-stock').value) || 0, image: imgPath }); } const payload = { name_ar: document.getElementById('p-name-ar').value, name_en: document.getElementById('p-name-en').value, price: parseFloat(document.getElementById('p-price').value), sku: document.getElementById('p-sku').value, category_id: parseInt(document.getElementById('p-cat').value), description: document.getElementById('p-desc').value, main_color_ar: document.getElementById('p-m-c-ar').value, main_color_en: document.getElementById('p-m-c-en').value, sizes: document.getElementById('p-sizes').value.split(',').map(s => s.trim()).filter(s => s), variants: vars, is_active: 1 }; if (mainPath) payload.main_image = mainPath; try { const url = id ? `${API}/products/${id}` : `${API}/products`; const method = id ? 'PUT' : 'POST'; await fetch(url, { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }, body: JSON.stringify(payload) }); toast('تم الحفظ ✓', 'ok'); document.getElementById('prod-detail-modal').classList.remove('on'); loadTab('products'); } catch (e) { } finally { btn.disabled = false; } }
+async function saveProd() {
+    const btn = document.getElementById('p-save-btn');
+    btn.disabled = true;
+    const id = document.getElementById('p-id').value;
+
+    // 1. Upload Main Image if exists
+    const mainFile = document.getElementById('p-img').files[0];
+    let mainPath = null;
+    if (mainFile) {
+        const fd = new FormData();
+        fd.append('image', mainFile);
+        try {
+            const r = await fetch(`${API}/products/upload`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` },
+                body: fd
+            });
+            const d = await r.json();
+            mainPath = d.path;
+        } catch (e) {
+            toast('فشل رفع الصورة الأساسية', 'err');
+        }
+    }
+
+    // 2. Build Variants and Upload Variant Images
+    const vars = [];
+    const varEls = document.querySelectorAll('.var-item');
+    for (const el of varEls) {
+        const c_ar = el.querySelector('.v-c-ar').value.trim();
+        if (!c_ar) continue;
+
+        const imgFile = el.querySelector('.v-img').files[0];
+        let imgPath = null;
+        if (imgFile) {
+            const fd = new FormData();
+            fd.append('image', imgFile);
+            try {
+                const r = await fetch(`${API}/products/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` },
+                    body: fd
+                });
+                const d = await r.json();
+                imgPath = d.path;
+            } catch (e) {
+                toast('فشل رفع صورة اللون', 'err');
+            }
+        }
+
+        vars.push({
+            color_ar: c_ar,
+            sizes: el.querySelector('.v-sizes').value.split(',').map(s => s.trim()).filter(s => s),
+            stock: parseInt(el.querySelector('.v-stock').value) || 0,
+            image: imgPath
+        });
+    }
+
+    // 3. Build Final Payload
+    const payload = {
+        name_ar: document.getElementById('p-name-ar').value,
+        name_en: document.getElementById('p-name-en').value,
+        price: parseFloat(document.getElementById('p-price').value),
+        sku: document.getElementById('p-sku').value,
+        category_id: parseInt(document.getElementById('p-cat').value),
+        description: document.getElementById('p-desc').value,
+        main_color_ar: document.getElementById('p-m-c-ar').value,
+        main_color_en: document.getElementById('p-m-c-en').value,
+        sizes: document.getElementById('p-sizes').value.split(',').map(s => s.trim()).filter(s => s),
+        variants: vars,
+        hidden: 0
+    };
+    if (mainPath) payload.main_image = mainPath;
+
+    // 4. Send to Server
+    try {
+        const url = id ? `${API}/products/${id}` : `${API}/products`;
+        const method = id ? 'PUT' : 'POST';
+        const r = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('admin_token')}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!r.ok) {
+            const errData = await r.json();
+            throw new Error(errData.error || 'فشل الحفظ');
+        }
+
+        toast('تم الحفظ بنجاح ✓', 'ok');
+        document.getElementById('prod-detail-modal').classList.remove('on');
+        loadTab('products');
+    } catch (e) {
+        toast(e.message, 'err');
+    } finally {
+        btn.disabled = false;
+    }
+}
 async function delProd(id) { if (!confirm('هتمسح المنتج ده؟')) return; try { await fetch(`${API}/products/${id}`, { headers: { 'Authorization': `Bearer ${localStorage.getItem('admin_token')}` }, method: 'DELETE' }); loadTab('products'); } catch (e) { } }
 
 /* UTILS */
