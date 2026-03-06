@@ -1,0 +1,21 @@
+{
+    "name": "EL TOUFAN — الطوفان",
+    "short_name": "EL TOUFAN",
+    "description": "Premium Luxury Clothing Store",
+    "start_url": "/index.html",
+    "display": "standalone",
+    "background_color": "#F8F4EE",
+    "theme_color": "#C8191E",
+    "icons": [
+        {
+            "src": "/assets/icon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/assets/icon.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin.html
+Disallow: /js/admin.js
+Disallow: /css/admin.css
+
+Sitemap: https://eltoufan.com/sitemap.xml
